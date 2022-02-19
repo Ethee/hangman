@@ -2,7 +2,10 @@
 
 require 'yaml'
 
-def save_game
+def save_game(game_obj)
+  Dir.mkdir('saves') unless Dir.exist?('saves')
+  save_name = Time.new.strftime('%F_%H%M%S')
+  File.open("saves/#{save_name}", 'w') { |file| file.write(game_obj.to_yaml) }
 end
 
 def load_game
@@ -12,12 +15,23 @@ def player_input(game_obj)
   puts "Guess a letter!\n"
   begin
     guess = gets.chomp
-    unless guess.match?(/[[:alpha:]]|1|2|3/)
-      raise "Not a valid input!\n"
+    unless guess.match?(/[[:alpha:]]|1|2|3/) && guess.length == 1
+      puts "Not a valid input!\n"
+      raise
     end
-    @guessed_letters.each do |letter|
-      if guess == letter
-        raise "You already guessed that!\n"
+    case guess
+    when '1'
+      save_game(game_obj)
+    when '2'
+      load_game
+    when '3'
+      exit
+    else
+      game_obj.guessed_letters.each do |letter|
+        if guess == letter
+          puts "You already guessed that!\n"
+          raise
+        end
       end
     end
     game_obj.check_guess(guess)
@@ -47,7 +61,9 @@ class GameState
   attr_writer :curr_word
 
   def initialize(word_list)
+    @num_guesses = 0
     @curr_word = word_list[rand(word_list.length)]
+    @guessed_letters = ['_']
     @curr_state = []
     @curr_state.fill('_', 0, @curr_word.length)
     puts "Welcome to a new game of Hangman!\nType 1 at any time to save the game!\n
@@ -61,18 +77,22 @@ class GameState
   def check_guess(guess)
     i = 0
     @curr_word.each_char do |letter|
-      if guess == letter { @curr_state[i] = guess }
-        i += 1
+      if letter == guess
+        @curr_state[i] = guess
       end
+      i += 1
     end
+    @num_guesses += 1
+    puts @curr_state.join(' '), "\nNum of failed attempts: #{@num_guesses} (max 7)"
+    @guessed_letters.insert(-1, guess)
   end
 end
 
-# initialize word list
+# initialize word list and game object
 word_list = load_words
+game = GameState.new(word_list)
 
 # game loop
 loop do
-  game = GameState.new(word_list)
   player_input(game)
 end
